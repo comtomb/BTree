@@ -49,7 +49,7 @@ namespace TomB.Util.Collections
 
             public void SetItem( int idx, KeyValuePair<TKey,TValue> item)
             {
-                throw new NotImplementedException();
+                items[idx] = item;
             }
             public KeyValuePair<TKey,TValue> GetItem(int idx)
             {
@@ -77,9 +77,20 @@ namespace TomB.Util.Collections
             }
 
             public abstract BTreeNode Split(out KeyValuePair<TKey, TValue> splitItem);
+            public abstract void Merge(BTreeNode right, KeyValuePair<TKey, TValue> insertItem);
 
         }
+        class InnerNodeEntry
+        {
+            public KeyValuePair<TKey, TValue> item;
+            public BTreeNode child;
 
+            public InnerNodeEntry(KeyValuePair<TKey, TValue> item, BTreeNode child)
+            {
+                this.item = item;
+                this.child = child;
+            }
+        }
         private class BTreeInnerNode : BTreeNode
         {
             public override bool IsLeaf
@@ -130,6 +141,14 @@ namespace TomB.Util.Collections
                 }
                 return newRight;
             }
+            public override void Merge(BTreeNode right, KeyValuePair<TKey, TValue> insertItem)
+            {
+                items[NumItems++] = insertItem;
+                Array.Copy(right.items, 0, items, NumItems, right.NumItems);
+                Array.Copy( ((BTreeInnerNode)right).children, 0, children, NumItems,right.NumItems + 1);
+                NumItems += right.NumItems;
+                right.NumItems = 0;
+            }
             public void InsertItemWithRightChild(int idx, KeyValuePair<TKey, TValue> item, BTreeNode rightChild)
             {
                 Array.Copy(items, idx, items, idx + 1, NumItems - idx);
@@ -146,7 +165,28 @@ namespace TomB.Util.Collections
                 children[idx] = leftChild;
                 NumItems++;
             }
-
+            public InnerNodeEntry RemoveItemWithLeftChild(int idx)
+            {
+                var retItem = items[idx];
+                Array.Copy(items, idx + 1, items, idx, NumItems - idx - 1);
+                items[NumItems - 1] = default(KeyValuePair<TKey, TValue>);
+                var retChild = children[idx ];
+                Array.Copy(children, idx + 1, children, idx, NumChildren - idx-1 );
+                children[NumItems] = null;
+                NumItems--;
+                return new InnerNodeEntry(retItem, retChild);
+            }
+            public InnerNodeEntry RemoveItemWithRightChild(int idx)
+            {
+                var retItem = items[idx];
+                Array.Copy(items, idx + 1, items, idx, NumItems - idx - 1);
+                items[NumItems - 1] = default(KeyValuePair<TKey, TValue>);
+                var retChild = children[idx + 1];
+                Array.Copy(children, idx + 2, children, idx + 1, NumChildren-(idx+1)-1);
+                children[NumItems] = null;
+                NumItems--;
+                return new InnerNodeEntry(retItem, retChild);
+            }
 
         }
         private class BTreeLeafNode : BTreeNode
@@ -170,6 +210,14 @@ namespace TomB.Util.Collections
             {
 
             }
+            public KeyValuePair<TKey,TValue> RemoveItem(int idx)
+            {
+                var ret = items[idx];
+                Array.Copy(items, idx + 1, items, idx, NumItems - idx - 1);
+                items[NumItems - 1] = default(KeyValuePair<TKey, TValue>);
+                NumItems--;
+                return ret;
+            }
             public void InsertItem(int idx, KeyValuePair<TKey, TValue> item)
             {
                 Array.Copy(items, idx, items, idx + 1, NumItems - idx);
@@ -189,6 +237,13 @@ namespace TomB.Util.Collections
                 for (int i = 0; i < len; i++)
                     items[mid + 1 + i] = default(KeyValuePair<TKey, TValue>);
                 return newRight;
+            }
+            public override void Merge(BTreeNode right, KeyValuePair<TKey, TValue> insertItem)
+            {
+                items[NumItems++] = insertItem;
+                Array.Copy(right.items, 0, items, NumItems, right.NumItems);
+                NumItems += right.NumItems;
+                right.NumItems = 0;
             }
 
         }
@@ -628,7 +683,169 @@ namespace TomB.Util.Collections
         }
         private bool Remove( KeyValuePair<TKey,TValue> item, bool checkValue)
         {
-            throw new NotImplementedException();
+            var x = root;
+            while(true)
+            {
+                int idx = x.FindItem(item.Key);
+                if(x.IsLeaf)
+                {
+                    if(idx<0)
+                    {
+                        return false;
+                    }
+                    else
+                    {
+                        ((BTreeLeafNode)x).RemoveItem(idx);
+                        count--;
+                        modCount = (modCount + 1) & ModCountMask;
+                        return true;
+                    }
+                }
+                else
+                {
+                    if(idx>=0)
+                    {
+                        var xInner = (BTreeInnerNode)x;
+                        // we have three cases
+                        //  1: we can use predecessor (right child)          
+                        //  2: we can use successor (left child)
+                        //  3: we can/must merge left and right child
+                        var left = xInner.children[idx];
+                        if(left.NumItems>minItems)
+                        {
+                            // case 1: walk down to the predeccessor: most right node in the mostright leaf of the left child
+
+                            var x2 = x;
+                            int idx2 = idx;
+                            do
+                            {
+                                x2 = EnsureDeleteInChild((BTreeInnerNode)x2, idx2);
+                                if(x2.IsInner)
+                                    idx2 = ((BTreeInnerNode)x2).NumChildren - 1;
+                            } while (x2.IsInner);
+                            var max = ((BTreeLeafNode)x2).RemoveItem(x2.NumItems - 1);
+                            x.SetItem(idx, max);
+                            modCount = (modCount + 1) & ModCountMask;
+                            count--;
+                            return true;
+                        }
+                        else
+                        {
+                            var right = xInner.children[idx + 1];
+                            if(right.NumItems>minItems)
+                            {
+                                // case 2: walk down to the successor: most left node of the mostleft leaf of the right child
+                                BTreeNode x2 = x;
+                                int idx2 = idx + 1;
+                                do
+                                {
+                                    x2 = EnsureDeleteInChild((BTreeInnerNode)x2, idx2);
+                                    idx2 = 0;
+                                } while (x2.IsInner);
+
+                                // remove smallest entry from leaf, and bring it to the inner node (overwrite the entry to be deleted) 
+                                var min = ((BTreeLeafNode)x2).RemoveItem(0);
+                                x.SetItem(idx, min);
+                                modCount = (modCount + 1) & ModCountMask;
+                                count--;
+                                return true;
+                            }
+                            else
+                            {
+                                // case 3: merge left&right child
+                                left.Merge(right, x.GetItem(idx));
+                                ((BTreeInnerNode)x).RemoveItemWithRightChild(idx);
+                                if (x == root && x.NumItems == 0)
+                                    root = ((BTreeInnerNode)x).children[0];
+                                x = left;
+                                idx = minItems;
+                                continue;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // next child
+                        idx = -idx - 1;
+                        x = EnsureDeleteInChild( (BTreeInnerNode)x, idx);
+                    }
+                }
+            }
+        }
+        private BTreeNode EnsureDeleteInChild( BTreeInnerNode x,int idx)
+        {
+            BTreeNode y = x.children[idx];
+            if (y.NumItems > minItems)
+                return y; // nothing to todo
+
+            // left & right children
+            var left = idx > 0 ? x.children[idx - 1] : null;
+            var right = idx < x.NumChildren - 1 ? x.children[idx + 1] : null;
+            // approach:
+            //  1. try to borrow from left sibling
+            //  2. try to borrow from right sibling
+            //  3. try to merge with left sibling
+            //  4. merge with right sibling
+            if(left!=null && left.NumItems>minItems)
+            {
+                // borrow from left sibling: rotation
+                KeyValuePair<TKey, TValue> mid;
+                if(left.IsLeaf)
+                {
+                    mid = ((BTreeLeafNode)left).RemoveItem(left.NumItems - 1);
+                    ((BTreeLeafNode)y).InsertItem(0, x.GetItem(idx - 1));
+                }
+                else
+                {
+                    var e = ((BTreeInnerNode)left).RemoveItemWithRightChild(left.NumItems - 1);
+                    ((BTreeInnerNode)y).InsertItemWithLeftChild(0, x.GetItem(idx - 1), e.child);
+                    mid = e.item;
+                }
+                x.SetItem(idx - 1, mid);
+                return y;
+            }
+            else
+            {
+                if(right!=null && right.NumItems>minItems)
+                {
+                    // borrow from right sibling: rotation
+                    KeyValuePair<TKey, TValue> mid;
+                    if (right.IsLeaf)
+                    {
+                        mid = ((BTreeLeafNode)right).RemoveItem(0);
+                        ((BTreeLeafNode)y).InsertItem(y.NumItems, x.GetItem(idx));
+                    }
+                    else
+                    {
+                        var e = ((BTreeInnerNode)right).RemoveItemWithLeftChild(0);
+                        ((BTreeInnerNode)y).InsertItemWithRightChild(y.NumItems, x.GetItem(idx),e.child);
+                        mid = e.item;
+                    }
+                    x.SetItem(idx , mid);
+                    return y;
+                }
+                else
+                {
+                    if(left!=null && left.NumItems==minItems)
+                    {
+                        // merge with left
+                        left.Merge(y, x.GetItem(idx - 1));
+                        x.RemoveItemWithRightChild(idx - 1);
+                        if (x == root && x.IsInner && x.NumChildren == 1)
+                            root = x.children[0]; // shrink tree
+                        return left;
+                    }
+                    else
+                    {
+                        // merge with right
+                        y.Merge(right, x.GetItem(idx));
+                        x.RemoveItemWithRightChild(idx);
+                        if (x == root && x.IsInner && x.NumChildren == 1)
+                            root = x.children[0];
+                        return y;
+                    }
+                }
+            }
         }
         private BTreeNode FindNode( TKey key, out int idx)
         {
