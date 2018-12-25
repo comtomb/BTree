@@ -107,6 +107,38 @@ namespace BTreeTest
         {
             Stress(1000, 500000, 20);
         }
+        [Fact]
+        public void TestEnumerators()
+        {
+            var tree = new BTreeSortedDictionary<int, int>(3);
+            var master = new SortedDictionary<int, int>();
+            var rnd = new Random(0);
+            Step(tree, master, 100000, rnd);
+            Compare<int, int>(tree, master);
+            var arrMaster = new KeyValuePair<int,int>[master.Count];
+            master.CopyTo(arrMaster, 0);
+            int p = 0;
+            foreach( var kv in tree )
+            {
+                Assert.True(kv.Key == arrMaster[p].Key && kv.Value == arrMaster[p].Value);
+                p++;
+            }
+            Assert.True(p == master.Count);
+            p = 0;
+            foreach (var v in tree.Values)
+            {
+                Assert.True(v == arrMaster[p].Value );
+                p++;
+            }
+            Assert.True(p == master.Count);
+            p = 0;
+            foreach (var k in tree.Keys)
+            {
+                Assert.True(k == arrMaster[p].Key);
+                p++;
+            }
+            Assert.True(p == master.Count);
+        }
 
     }
 }

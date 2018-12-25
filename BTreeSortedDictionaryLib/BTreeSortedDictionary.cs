@@ -371,12 +371,26 @@ namespace TomB.Util.Collections
         }
         private class KeyValueEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
         {
+            class NodeInfo
+            {
+                public readonly BTreeNode node;
+                public readonly int index;
+                public NodeInfo(BTreeNode n, int i)
+                {
+                    node = n;
+                    index = i;
+                }
+            }
             public KeyValuePair<TKey, TValue> Current
             {
                 get
                 {
-                    // TODO Current
-                    throw new NotImplementedException();
+                    if (tree.modCount != modCount)
+                        throw new NotSupportedException();
+                    if (runNode != null)
+                        return runNode.GetItem(runIdx);
+                    else
+                        throw new NotSupportedException();
                 }
             }
 
@@ -384,14 +398,23 @@ namespace TomB.Util.Collections
             {
                 get
                 {
-                    // TODO Current
-                    throw new NotImplementedException();
+                    if (tree.modCount != modCount)
+                        throw new NotSupportedException();
+                    if (runNode != null)
+                        return runNode.GetItem(runIdx);
+                    else
+                        throw new NotSupportedException();
                 }
             }
             private readonly BTreeSortedDictionary<TKey, TValue> tree;
+            private int modCount;
+            private readonly Stack<NodeInfo> stack = new Stack<NodeInfo>();
+            private BTreeNode runNode;
+            private int runIdx;
             public KeyValueEnumerator(BTreeSortedDictionary<TKey, TValue> tree)
             {
                 this.tree = tree;
+                modCount = tree.modCount;
             }
 
             public void Dispose()
@@ -401,14 +424,60 @@ namespace TomB.Util.Collections
 
             public bool MoveNext()
             {
-                // TODO MoveNext
-                throw new NotImplementedException();
+                if (tree.modCount != modCount)
+                    throw new NotSupportedException();
+                // start with root & runIdx0
+                if (runNode == null)
+                {
+                    if (runIdx == -2)
+                        return false; // already at end
+                    runNode = tree.root;
+                    runIdx = -1;
+                }
+                runIdx++;
+                while (true)
+                {
+                    if (runNode.IsLeaf)
+                    {
+                        if (runIdx < runNode.NumItems)
+                            return true;
+                    }
+                    else
+                    {
+                        // try to walk down
+                        if (runIdx < ((BTreeInnerNode)runNode).NumChildren)
+                        {
+                            stack.Push(new NodeInfo(runNode, runIdx));
+                            runNode = ((BTreeInnerNode)runNode).children[runIdx];
+                            runIdx = 0;
+                            continue;
+                        }
+                    }
+                    // check if all done
+                    if (stack.Count == 0)
+                    {
+                        runNode = null;
+                        runIdx = -2; // trigger a fail if call MoveNext() again
+                        return false;
+                    }
+                    // up again
+                    var p = stack.Pop();
+                    runNode = p.node;
+                    runIdx = p.index;
+                    if (runIdx < runNode.NumItems)
+                    {
+                        return true;
+                    }
+                    // next 
+                    runIdx++;
+                }
             }
 
             public void Reset()
             {
-                // TODO Reset
-                throw new NotImplementedException();
+                runNode = null;
+                runIdx = -1;
+                modCount = tree.modCount;
             }
         }
         private class ValueEnumerator : IEnumerator<TValue>
@@ -487,8 +556,6 @@ namespace TomB.Util.Collections
         }
 
         #endregion
-
-
         #region Properties&Co
         private readonly int degree;
         private readonly IComparer<TKey> comparer;
@@ -499,7 +566,6 @@ namespace TomB.Util.Collections
         private int maxItems;
         private int minItems;
         #endregion
-
         #region Constructors
         public BTreeSortedDictionary(int degree,IComparer<TKey> comparer=null)
             : base()
@@ -511,8 +577,6 @@ namespace TomB.Util.Collections
             root = new BTreeLeafNode(degree, this, this.comparer);
         }
         #endregion
-
-
         #region IDictionary
         public TValue this[TKey key]
         {
@@ -637,7 +701,6 @@ namespace TomB.Util.Collections
             return new KeyValueEnumerator(this);
         }
         #endregion
-
         #region Core
         private bool AddNew(KeyValuePair<TKey,TValue> item )
         {
@@ -873,14 +936,12 @@ namespace TomB.Util.Collections
             }
         }
         #endregion
-
         #region Misc
         public bool ContainsValue( TValue value )
         {
             throw new NotImplementedException();
         }
         #endregion
-
         #region Debug
 #if DEBUG
         public List<KeyValuePair<TKey,TValue>> TraverseRecursive(bool print)
