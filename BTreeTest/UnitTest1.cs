@@ -14,10 +14,7 @@ namespace BTreeTest
             var arrMaster = new KeyValuePair<K, V>[master.Count];
             master.CopyTo(arrMaster, 0);
             var arrTree = new KeyValuePair<K, V>[master.Count];
-            var lstTree = tree.TraverseRecursive(false);
-            if (lstTree.Count != master.Count)
-                throw new Exception();
-            lstTree.CopyTo(arrTree, 0);
+            tree.CopyTo(arrTree, 0);
             for (int i = 0; i < master.Count; i++)
                 if (!arrTree[i].Key.Equals(arrMaster[i].Key) || !arrTree[i].Value.Equals(arrMaster[i].Value))
                     throw new Exception();
@@ -138,6 +135,112 @@ namespace BTreeTest
                 p++;
             }
             Assert.True(p == master.Count);
+        }
+        [Fact]
+        public void TestEnum()
+        {
+
+            var tree = new BTreeSortedDictionary<int, int>(null, 3, null);
+            for (int i = 2; i <= 1000; i += 2)  // all even numbers
+                tree.Add(i, -i);
+
+            int cmp;
+            // less or equal
+            for (int g = 1; g < 20; g++)
+            {
+                var leEnum = tree.GetEnumeratorLessOrEqual(g);
+                cmp = 2;
+                while (leEnum.MoveNext())
+                {
+                    int k = leEnum.Current.Key;
+                    Assert.True(k == cmp);
+                    cmp += 2;
+                }
+
+                Assert.False(cmp != g && cmp != g - 1 && (g == 1 && cmp != 2));
+            }
+
+            // greater or equal
+            for (int g = 890; g <= 1000; g++)
+            {
+                var leEnum = tree.GetEnumeratorGreaterOrEqual(g);
+                cmp = g;
+                if ((g % 2) == 1)
+                    cmp++;
+                while (leEnum.MoveNext())
+                {
+                    int k = leEnum.Current.Key;
+                    Assert.True(k == cmp);
+                    cmp += 2;
+                }
+                Assert.True(cmp == 1002);
+            }
+
+            // range
+            for (int g = 300; g <= 400; g++)
+            {
+                var rngEnum = tree.GetEnumeratorRange(g, g + 100);
+                cmp = g;
+                int last;
+                if ((g % 2) == 1)
+                {
+                    cmp++;
+                    last = cmp + 98;
+                }
+                else
+                {
+                    last = cmp + 100;
+                }
+
+                while (rngEnum.MoveNext())
+                {
+                    int k = rngEnum.Current.Key;
+                    Assert.True(k == cmp);
+                    cmp += 2;
+                }
+                Assert.True(cmp == last + 2);
+
+            }
+            cmp = 2;
+            var allEnum = tree.GetEnumerator();
+            while (allEnum.MoveNext())
+            {
+                int k = allEnum.Current.Key;
+                Assert.True(k == cmp);
+                cmp += 2;
+            }
+            Assert.True(cmp == 1002);
+        }
+
+        [Fact]
+        public void TestGreatest()
+        {
+            var tree = new BTreeSortedDictionary<int, int>(null, 3, null);
+            for (int i = 0; i < 1000; i++)
+                tree.Add(i, -i);
+            for (int i = 999; i >= 0; i--)
+            {
+                var peek = tree.GetGreatest();
+                Assert.True(peek.Key == i);
+                var removed = tree.RemoveGreatest();
+                Assert.True(removed.Key == i);
+            }
+            Assert.True(tree.Count == 0);
+        }
+        [Fact]
+        public void TestSmallest()
+        {
+            var tree = new BTreeSortedDictionary<int, int>(null, 3, null);
+            for (int i = 0; i < 1000; i++)
+                tree.Add(i, -i);
+            for (int i = 0; i <= 999; i++)
+            {
+                var peek = tree.GetSmallest();
+                Assert.True(peek.Key == i);
+                var removed = tree.RemoveSmallest();
+                Assert.True(removed.Key == i);
+            }
+            Assert.True(tree.Count == 0);
         }
 
     }

@@ -820,9 +820,9 @@ namespace TomB.Util.Collections
         /// <summary>
         /// maximum number of items in a node (=degree*2-1)
         /// </summary>
-        private int maxItems;
+        private readonly int maxItems;
         // minimum number of items in a node (=degree-1)
-        private int minItems;
+        private readonly int minItems;
         /// <summary>
         /// Default degree for a tree
         /// </summary>
@@ -875,6 +875,11 @@ namespace TomB.Util.Collections
         
         #endregion
         #region IDictionary
+        /// <summary>
+        /// <see cref="IDictionary"/>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public TValue this[TKey key]
         {
             get
@@ -893,7 +898,9 @@ namespace TomB.Util.Collections
                 node.items[idx]=new KeyValuePair<TKey,TValue>(key, value);
             }
         }
-
+        /// <summary>
+        /// <see cref="IDictionary.Keys"/>
+        /// </summary>
         public ICollection<TKey> Keys
         {
             get
@@ -901,7 +908,9 @@ namespace TomB.Util.Collections
                 return new KeyCollection(this);
             }
         }
-
+        /// <summary>
+        /// <see cref="IDictionary.Values"/>
+        /// </summary>
         public ICollection<TValue> Values
         {
             get
@@ -909,7 +918,9 @@ namespace TomB.Util.Collections
                 return new ValueCollection(this);
             }
         }
-
+        /// <summary>
+        /// <see cref="ICollection{TKey, TValue}.Count"/>
+        /// </summary>
         public int Count
         {
             get
@@ -918,7 +929,9 @@ namespace TomB.Util.Collections
             }
 
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.IsReadOnly"/>
+        /// </summary>
         public bool IsReadOnly
         {
             get
@@ -927,25 +940,38 @@ namespace TomB.Util.Collections
             }
         }
 
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.Add(TKey, TValue)"/>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void Add(TKey key, TValue value)
         {
             AddNew(new KeyValuePair<TKey,TValue>(key, value));
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.Add(TKey, TValue)"/>
+        /// </summary>
+        /// <param name="item"></param>
         public void Add(KeyValuePair<TKey, TValue> item)
         {
             if (!AddNew(item))
                 throw new ArgumentException();
         }
-
+        /// <summary>
+        /// <see cref="ICollection{T}.Clear"/>
+        /// </summary>
         public void Clear()
         {
             root = new BTreeLeafNode(degree, this, comparer);
             count = 0;
             modCount = (modCount + 1) & ModCountMask;
         }
-
+        /// <summary>
+        /// <see cref="ICollection{T}.Contains(T)"/>
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
             TValue v;
@@ -953,34 +979,58 @@ namespace TomB.Util.Collections
                 return true;
             return v.Equals(item.Value);
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.ContainsKey(TKey)"/>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public bool ContainsKey(TKey key)
         {
         	TValue v;
             return TryGetValue(key, out  v);
         }
-
+        /// <summary>
+        /// <see cref="ICollection{T}.CopyTo(T[], int)"/>
+        /// </summary>
+        /// <param name="array"></param>
+        /// <param name="arrayIndex"></param>
         public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
         {
             foreach (var kv in this)
                 array[arrayIndex++] = kv;
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}"/>
+        /// </summary>
+        /// <returns></returns>
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
         	return new KeyValueEnumerator(this,default(TKey),default(TKey));
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.Remove(TKey)"/>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
         public bool Remove(TKey key)
         {
             return Remove(new KeyValuePair<TKey,TValue>(key,default(TValue)),false);
         }
-
+        /// <summary>
+        /// <see cref="ICollection{T}.Remove(T)"/>
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
         public bool Remove(KeyValuePair<TKey, TValue> item)
         {
             return Remove(item, true);
         }
-
+        /// <summary>
+        /// <see cref="IDictionary{TKey, TValue}.TryGetValue(TKey, out TValue)"/>
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
         public bool TryGetValue(TKey key, out TValue value)
         {
             int idx;
