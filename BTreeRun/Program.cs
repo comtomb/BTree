@@ -15,10 +15,7 @@ namespace BTreeRun
             var arrMaster = new KeyValuePair<K,V>[master.Count];
             master.CopyTo(arrMaster, 0);
             var arrTree = new KeyValuePair<K, V>[master.Count];
-            var lstTree = tree.TraverseRecursive(false);
-            if( lstTree.Count!=master.Count)
-                throw new Exception();
-            lstTree.CopyTo(arrTree, 0);
+            tree.CopyTo(arrTree, 0);
             for (int i = 0; i < master.Count; i++)
                 if (!arrTree[i].Key.Equals(arrMaster[i].Key) || !arrTree[i].Value.Equals(arrMaster[i].Value))
                     throw new Exception();
@@ -65,12 +62,326 @@ namespace BTreeRun
                 Console.WriteLine(TimeSpan.FromTicks(t1 - t0).TotalMilliseconds);
             }
         }
+        
+        
+        static void PerfAddSeq()
+        {
+        	Console.WriteLine("Add Sequential");
+        	int[]degrees=new int[] {3,7,13,128};
+        	var rnd=new Random(0);
+        	var sd=new SortedDictionary<int,int>();
+        	int toAdd=1000000;
+        	var tsd0=DateTime.Now.Ticks;
+        	for(int i=0;i<toAdd;i++)
+        		sd.Add(i,-1);
+        	var tsd1=DateTime.Now.Ticks;
+        	Console.WriteLine("Add SortedDictionary "  +TimeSpan.FromTicks(tsd1-tsd0).TotalMilliseconds);
+        	
+        	
+        	foreach( int d in degrees)
+        	{
+        		var tree3=new BTreeSortedDictionary<int,int>(null,d,null);
+	        	var ttree0=DateTime.Now.Ticks;
+	        	for(int i=0;i<toAdd;i++)
+	        		tree3.Add(i,-1);
+	        	var ttree1=DateTime.Now.Ticks;
+	        	Console.WriteLine("Add         Tree d:" + String.Format("{0,3:D}",d) + " "   +TimeSpan.FromTicks(ttree1-ttree0).TotalMilliseconds);
+        	}
+        	
+        	
+        }
 
+        static void PerfAddContainRemove(int toAdd)
+        {
+        	Console.WriteLine("Add Random " + toAdd);
+        	int k1=toAdd/3;
+        	int[]degrees=new int[] {3,7,13,63,128,257};
+        	var rnd=new Random(0);
+        	var sd=new SortedDictionary<int,int>();
+        	int[] src=new int[toAdd];
+        	for(int i=0;i<src.Length;i++)
+        		src[i]=i;
+        	for(int i=0;i<src.Length;i++)
+        	{
+        		int idx=rnd.Next(src.Length);
+        		int h=src[i];
+        		src[i]=src[idx];
+        		src[idx]=h;
+        	}
 
+        	
+        	var tsd0=DateTime.Now.Ticks;
+        	for(int i=0;i<toAdd;i++)
+        	{
+        		sd.Add(src[i],-src[i]);
+        	}
+        	var tsd1=DateTime.Now.Ticks;
+        	Console.WriteLine("Add SortedDictionary     "  +TimeSpan.FromTicks(tsd1-tsd0).TotalMilliseconds);
+        	for(int i=0;i<k1;i++)
+        		sd.Remove(src[i]);
+        	long sum=0;
+        	for(int i=k1;i<toAdd;i++)
+        	{        		
+        		sum+=sd[src[i]];;
+        	}
+        	var tsd2=DateTime.Now.Ticks;
+        	Console.WriteLine("Retr. SortedDictionary   "  +TimeSpan.FromTicks(tsd2-tsd1).TotalMilliseconds);
+        	for(int i=k1;i<toAdd;i++)
+        		sd.Remove(src[i]);
+	        var tsd3=DateTime.Now.Ticks;
+        	Console.WriteLine("Remove SortedDictionary  "  +TimeSpan.FromTicks(tsd3-tsd2).TotalMilliseconds);
+        	Console.WriteLine("Total SortedDictionary           "  +TimeSpan.FromTicks(tsd3-tsd0).TotalMilliseconds);
+        	
+        	foreach( int d in degrees)
+        	{
+	        	var tree3=new BTreeSortedDictionary<int,int>(null,d,null);
+	        	var ttree0=DateTime.Now.Ticks;
+	        	for(int i=0;i<toAdd;i++)
+	        		tree3.Add(src[i],-src[i]);
+	        		        	
+	        	var ttree1=DateTime.Now.Ticks;
+	        	Console.WriteLine("Add Tree with    d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree1-ttree0).TotalMilliseconds);
+	        	Console.WriteLine("After Add:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	for(int i=0;i<k1;i++)
+	        		tree3.Remove(src[i]);
+	        	Console.WriteLine("After Pre-Remove:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	sum=0;
+	        	for(int i=k1;i<toAdd;i++)
+	        	{        		
+	        		sum+=tree3[src[i]];;
+	        	}
+	        	var ttree2=DateTime.Now.Ticks;
+	        	Console.WriteLine("Retr. Tree with  d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree2-ttree1).TotalMilliseconds);
+	        	for(int i=k1;i<toAdd;i++)
+	        		tree3.Remove(src[i]);
+	        	var ttree3=DateTime.Now.Ticks;
+	        	Console.WriteLine("Remove Tree with d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree3-ttree2).TotalMilliseconds);
+	        	Console.WriteLine("End:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	Console.WriteLine("Total Tree with  d=" + String.Format("{0,4:D}",d) + ":         "   +TimeSpan.FromTicks(ttree3-ttree0).TotalMilliseconds);
+        	}
+        	
+        	
+        	
+        }
 
+        
+        static void PerfCheck(int toAdd)
+        {
+        	Console.WriteLine("Add Random " + toAdd);
+        	int[]degrees=new int[] {13};
+        	var rnd=new Random(0);
+        	var sd=new SortedDictionary<int,int>();
+        	int[] src=new int[toAdd];
+        	for(int i=0;i<src.Length;i++)
+        		src[i]=i;
+        	for(int i=0;i<src.Length;i++)
+        	{
+        		int idx=rnd.Next(src.Length);
+        		int h=src[i];
+        		src[i]=src[idx];
+        		src[idx]=h;
+        	}
+
+        	
+        	
+        	foreach( int d in degrees)
+        	{
+	        	var tree3=new BTreeSortedDictionary<int,int>(null,d,null);
+	        	var ttree0=DateTime.Now.Ticks;
+	        	for(int i=0;i<toAdd;i++)
+	        		tree3.Add(src[i],-src[i]);
+	        		        	
+	        	var ttree1=DateTime.Now.Ticks;
+	        	Console.WriteLine("Add Tree with    d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree1-ttree0).TotalMilliseconds);
+				long sum=0;
+	        	for(int i=0;i<toAdd;i++)
+	        	{        		
+	        		sum+=tree3[src[i]];;
+	        	}
+	        	var ttree2=DateTime.Now.Ticks;
+	        	Console.WriteLine("Retr. Tree with  d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree2-ttree1).TotalMilliseconds);
+	        	for(int i=0;i<toAdd;i++)
+	        		tree3.Remove(src[i]);
+	        	var ttree3=DateTime.Now.Ticks;
+	        	Console.WriteLine("Remove Tree with d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree3-ttree2).TotalMilliseconds);
+	        	Console.WriteLine("Total Tree with  d=" + String.Format("{0,4:D}",d) + ":         "   +TimeSpan.FromTicks(ttree3-ttree0).TotalMilliseconds);
+        	}
+        	
+        	
+        	
+        }
+        static void PerfCheckSD(int toAdd)
+        {
+        	Console.WriteLine("Add Random " + toAdd);
+        	int[]degrees=new int[] {13};
+        	var rnd=new Random(0);
+        	int[] src=new int[toAdd];
+        	for(int i=0;i<src.Length;i++)
+        		src[i]=i;
+        	for(int i=0;i<src.Length;i++)
+        	{
+        		int idx=rnd.Next(src.Length);
+        		int h=src[i];
+        		src[i]=src[idx];
+        		src[idx]=h;
+        	}
+
+        	
+        	
+        	foreach( int d in degrees)
+        	{
+	        	var sd=new SortedDictionary<int,int>();
+	        	var ttree0=DateTime.Now.Ticks;
+	        	for(int i=0;i<toAdd;i++)
+	        		sd.Add(src[i],-src[i]);
+	        		        	
+	        	var ttree1=DateTime.Now.Ticks;
+	        	Console.WriteLine("Add  " + TimeSpan.FromTicks(ttree1-ttree0).TotalMilliseconds);
+				long sum=0;
+	        	for(int i=0;i<toAdd;i++)
+	        	{        		
+	        		sum+=sd[src[i]];;
+	        	}
+	        	var ttree2=DateTime.Now.Ticks;
+	        	Console.WriteLine("Retr " + TimeSpan.FromTicks(ttree2-ttree1).TotalMilliseconds);
+	        	for(int i=0;i<toAdd;i++)
+	        		sd.Remove(src[i]);
+	        	var ttree3=DateTime.Now.Ticks;
+	        	Console.WriteLine("Rem =" +TimeSpan.FromTicks(ttree3-ttree2).TotalMilliseconds);
+	        	Console.WriteLine("Total Tree with  d=" + String.Format("{0,4:D}",d) + ":         "   +TimeSpan.FromTicks(ttree3-ttree0).TotalMilliseconds);
+        	}
+        	
+        	
+        	
+        }
+
+        private static void TestEnum()
+        {
+
+        	var tree=new BTreeSortedDictionary<int,int>(null,3,null);
+        	for(int i=2;i<=1000;i+=2)	// all even numbers
+        		tree.Add(i,-i);
+        	
+        	int cmp;
+        	// less or equal
+        	for(int g=1;g<20;g++)
+        	{
+	        	var leEnum=tree.GetEnumeratorLessOrEqual(g);
+	        	cmp=2;
+	        	while(leEnum.MoveNext())
+	        	{
+	        		int k=leEnum.Current.Key;
+	        		if(k!=cmp)
+	        			throw new Exception();
+	        		cmp+=2;	        	
+	        	}
+	        	
+	        	if( cmp!=g && cmp!=g-1 && (g==1 && cmp!=2) )
+        			throw new Exception();        			
+        	}
+        	
+        	// greater or equal
+        	for(int g=890;g<=1000;g++)
+        	{
+	        	var leEnum=tree.GetEnumeratorGreaterOrEqual(g);
+	        	cmp=g;
+	        	if( (g%2)==1)
+	        		cmp++;
+	        	while(leEnum.MoveNext())
+	        	{
+	        		int k=leEnum.Current.Key;
+	        		if(k!=cmp)
+	        			throw new Exception();
+	        		cmp+=2;	        	
+	        	}
+	        	if( cmp!=1002)
+	        		throw new Exception();
+        	}
+        	
+        	// range
+        	for(int g=300;g<=400;g++)
+        	{
+        		var rngEnum=tree.GetEnumeratorRange(g,g+100);
+	        	cmp=g;
+	        	int last;
+	        	if( (g%2)==1)
+	        	{
+	        		cmp++;
+	        		last=cmp+98;
+	        	}
+	        	else
+	        	{
+	        		last=cmp+100;
+	        	}
+	        	
+	        	while(rngEnum.MoveNext())
+	        	{
+	        		int k=rngEnum.Current.Key;
+	        		if(k!=cmp)
+	        			throw new Exception();
+	        		cmp+=2;	        	
+	        	}
+	        	if( cmp!=last+2)
+	        		throw new Exception();
+        		
+        	}
+        	cmp=2;
+        	var allEnum=tree.GetEnumerator();
+        	while(allEnum.MoveNext() )
+        	{
+        		int k=allEnum.Current.Key;
+        		if(k!=cmp)
+        			throw new Exception();
+        		cmp+=2;
+        	}
+        	if(cmp!=1002)
+        		throw new Exception();
+        	
+        }
+
+        private static void TestGreatest()
+        {
+        	var tree=new BTreeSortedDictionary<int,int>(null,3,null);
+        	for(int i=0;i<1000;i++)
+        		tree.Add(i,-i);
+        	for(int i=999;i>=0;i--)
+        	{
+        		var peek=tree.GetGreatest();
+        		if(peek.Key!=i)
+        			throw new Exception();
+        		var removed=tree.RemoveGreatest();
+        		if(removed.Key!=i)
+        			throw new Exception();
+        	}
+        	if(tree.Count!=0)
+        		throw new Exception();
+        }
+        private static void TestSmallest()
+        {
+        	var tree=new BTreeSortedDictionary<int,int>(null,3,null);
+        	for(int i=0;i<1000;i++)
+        		tree.Add(i,-i);
+        	for(int i=0;i<=999;i++)
+        	{
+        		var peek=tree.GetSmallest();
+        		if(peek.Key!=i)
+        			throw new Exception();
+        		var removed=tree.RemoveSmallest();
+        		if(removed.Key!=i)
+        			throw new Exception();
+        	}
+        	if(tree.Count!=0)
+        		throw new Exception();
+        }
+        
         static void Main(string[] args)
         {
-            var tree = new BTreeSortedDictionary<int, int>(3);
+        	//PerfAddContainRemove(50000000);
+        	TestEnum();
+        	TestGreatest();
+        	TestSmallest();
+        	
+        	var tree = new BTreeSortedDictionary<int, int>(3,null);
             var master = new SortedDictionary<int, int>();
             var rnd = new Random(0);
             for (int i = 0; i < 100; i++)
