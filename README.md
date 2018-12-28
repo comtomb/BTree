@@ -10,5 +10,5 @@ C# Implementation of a SortedDictionary using a BTRee
 
 BTree Implementation:
 - Add/Remove are done in "single pass down", without recursion and without "up-steps"
-
+- Implementation of IDictionary<TKey,TValue>
 
