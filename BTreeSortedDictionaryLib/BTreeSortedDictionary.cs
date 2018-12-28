@@ -22,6 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// TODO exception
+// TODO parameter check
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -45,7 +47,8 @@ namespace TomB.Util.Collections
 	/// 			- all entries (greater or equal X) and (less or equal Y) =  Range X-Y  
 	/// 
 	/// </summary>
-    public class BTreeSortedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+	[DebuggerDisplay("Count={Count} Degree={Degree} Depth={Depth}")]
+	public class BTreeSortedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
     {
         #region Nodes
         /// <summary>
@@ -376,6 +379,7 @@ namespace TomB.Util.Collections
         /// <summary>
         /// (read only) Collection of all Values of the tree
         /// </summary>
+        [DebuggerDisplay("Count={Count}")]
         private class ValueCollection : ICollection<TValue>
         {
             public int Count
@@ -442,6 +446,7 @@ namespace TomB.Util.Collections
         /// <summary>
         /// (read only) Collection of all keys 
         /// </summary>
+        [DebuggerDisplay("Count={Count}")]
         private class KeyCollection : ICollection<TKey>
         {
             public int Count
@@ -831,6 +836,23 @@ namespace TomB.Util.Collections
         /// ID for the next node (for debugging purposes only)
         /// </summary>
         private long nextNodeId = 1;
+        /// <summary>
+        /// Degree of the tree
+        /// </summary>
+        public int Degree
+        {
+        	get
+        	{
+        		return degree;
+        	}
+        }
+        /// <summary>
+        /// Depth of the tree
+        /// </summary>
+        public int Depth
+        {
+        	get;private set;
+        }
         #endregion
         #region Constructors
         /// <summary>
@@ -858,6 +880,7 @@ namespace TomB.Util.Collections
             minItems = degree - 1;
             this.comparer = comparer ?? Comparer<TKey>.Default;
             root = new BTreeLeafNode(degree, this, this.comparer); 
+            Depth=1;
         	
         }
         /// <summary>
@@ -966,6 +989,7 @@ namespace TomB.Util.Collections
             root = new BTreeLeafNode(degree, this, comparer);
             count = 0;
             modCount = (modCount + 1) & ModCountMask;
+            Depth=1;
         }
         /// <summary>
         /// <see cref="ICollection{T}.Contains(T)"/>
@@ -1073,6 +1097,7 @@ namespace TomB.Util.Collections
                 newRoot.InsertItemWithRightChild(0, splitItem, newRight);
                 newRoot.children[0] = root;
                 root = newRoot;
+                Depth++;
             }
             // walk down to a leaf
             var x = root;
@@ -1197,7 +1222,10 @@ namespace TomB.Util.Collections
                                 left.Merge(right, x.items[idx]);
                                 ((BTreeInnerNode)x).RemoveItemWithRightChild(idx);	// delete the key and the 'empt' right child
                                 if (x == root && x.numItems == 0)
-                                    root = ((BTreeInnerNode)x).children[0]; // shrink tree if necessary
+                                {	// shrink tree
+                                    root = ((BTreeInnerNode)x).children[0]; 
+                                    Depth--;
+                                }
                                 x = left;
                                 idx = minItems;
                                 continue;
@@ -1279,7 +1307,10 @@ namespace TomB.Util.Collections
                         left.Merge(y, x.items[idx-1]);
                         x.RemoveItemWithRightChild(idx - 1);
                         if (x == root && !x.isLeaf && x.numItems == 0)
+                        {
                             root = x.children[0]; // shrink tree
+                            Depth--;
+                        }
                         return left;
                     }
                     else
@@ -1288,7 +1319,10 @@ namespace TomB.Util.Collections
                         y.Merge(right, x.items[idx]);
                         x.RemoveItemWithRightChild(idx);
                         if (x == root && !x.isLeaf && x.numItems == 0)
+                        {
                             root = x.children[0];
+                            Depth--;
+                        }
                         return y;
                     }
                 }
@@ -1327,6 +1361,11 @@ namespace TomB.Util.Collections
         }
         #endregion
         #region Misc
+        /// <summary>
+        /// check if a value is contained in the tree
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns><code>true</code> if the value is in the tree</returns>
         public bool ContainsValue( TValue value )
         {
         	foreach(var kv in this) 
@@ -1334,21 +1373,19 @@ namespace TomB.Util.Collections
         		   return true;
         	return false;
         }
+        /// <summary>
+        /// number of Nodes
+        /// </summary>
+        /// <returns>number of Nodes</returns>
         public int CountNodes()
         {
         	return CountNodes(root);
         }
-        public int Depth()
-        {
-        	int d=1;
-        	var run=root;
-        	while(!run.isLeaf )
-        	{
-        		d++;
-        		run=((BTreeInnerNode)run).children[0];
-        	}
-        	return d;
-        }
+        /// <summary>
+        /// worker to recursive count the nodes in the tree
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
         private int CountNodes( BTreeNode node )
         {
         	if( node.numItems<degree-1 && node!=root)
@@ -1361,10 +1398,14 @@ namespace TomB.Util.Collections
         		s+=CountNodes(inner.children[i]);
         	return s;
         }
+        /// <summary>
+        /// find the smallest item in the tree
+        /// </summary>
+        /// <returns>smallest item or <code>null</code> if tree is empty</returns>
         public KeyValuePair<TKey,TValue> GetSmallest()
         {
         	if( count==0)
-        		throw new InvalidOperationException();
+        		return default(KeyValuePair<TKey,TValue>);
         	var run=root;
         	while(!run.isLeaf)
         	{
@@ -1372,6 +1413,11 @@ namespace TomB.Util.Collections
         	}
         	return run.items[0];
         }
+        /// <summary>
+        /// remove the smallest item
+        /// </summary>
+        /// <exception cref="InvalidOperationException"> if tree is empty</exception
+        /// <returns>smallest item</returns>
         public KeyValuePair<TKey,TValue> RemoveSmallest()
         {
         	if( count==0)
@@ -1385,10 +1431,14 @@ namespace TomB.Util.Collections
         	modCount = (modCount + 1) & ModCountMask;
         	return ((BTreeLeafNode)run).RemoveItem(0);
         }
+        /// <summary>
+        /// find the greatest item in the tree
+        /// </summary>
+        /// <returns>greatest item or <code>default(KeyValuePair)</code> if tree is empty</returns>
         public KeyValuePair<TKey,TValue> GetGreatest()
         {
         	if( count==0)
-        		throw new InvalidOperationException();
+        		return default(KeyValuePair<TKey,TValue>);
         	var run=root;
         	while(!run.isLeaf)
         	{
@@ -1396,6 +1446,11 @@ namespace TomB.Util.Collections
         	}
         	return run.items[run.numItems-1];
         }
+        /// <summary>
+        /// remove greatest item
+        /// </summary>
+        /// <exception cref="InvalidOperationException"> if tree is empty</exception
+        /// <returns>greatest item</returns>
         public KeyValuePair<TKey,TValue> RemoveGreatest()
         {
         	if( count==0)
@@ -1409,19 +1464,40 @@ namespace TomB.Util.Collections
         	modCount = (modCount + 1) & ModCountMask;
         	return ((BTreeLeafNode)run).RemoveItem(run.numItems-1);
         }
-        
+        /// <summary>
+        /// get an enumerator for a range of keys
+        /// </summary>
+        /// <param name="minKey">minimum key</param>
+        /// <param name="maxKey">maximum key</param>
+        /// <returns></returns>
         public IEnumerator<KeyValuePair<TKey,TValue>> GetEnumeratorRange( TKey minKey, TKey maxKey )
         {
         	return new KeyValueEnumerator(this,minKey,maxKey);
         }
+        /// <summary>
+        /// get an enumerator for all elements &gt;=minKey
+        /// </summary>
+        /// <param name="minKey">minimum key</param>
+        /// <returns>enumerator</returns>
         public IEnumerator<KeyValuePair<TKey,TValue>> GetEnumeratorGreaterOrEqual( TKey minKey )
         {
         	return new KeyValueEnumerator(this,minKey,default(TKey));
         }
+        /// <summary>
+        /// get enumerator for all elements &lt;=maxKey
+        /// </summary>
+        /// <param name="maxKey">maximum</param>
+        /// <returns>enumerator</returns>
         public IEnumerator<KeyValuePair<TKey,TValue>> GetEnumeratorLessOrEqual( TKey maxKey )
         {
         	return new KeyValueEnumerator(this,default(TKey),maxKey);
         }
+        /// <summary>
+        /// get a part of the dictionary as a collection
+        /// </summary>
+        /// <param name="minKey">minimum</param>
+        /// <param name="maxKey">maximum</param>
+        /// <returns></returns>
         public ICollection<KeyValuePair<TKey,TValue>> GetRange(TKey minKey,TKey maxKey)
         {
         	var lst=new LinkedList<KeyValuePair<TKey,TValue>>();
@@ -1430,6 +1506,13 @@ namespace TomB.Util.Collections
         		lst.AddLast(setEnum.Current);
         	return lst;
         }
+        
+        /// <summary>
+        /// get the items in range
+        /// </summary>
+        /// <param name="minKey">minimum</param>
+        /// <param name="maxKey">maximum</param>
+        /// <returns></returns>
         public ICollection<TKey> GetKeyRange(TKey minKey,TKey maxKey)
         {
         	var lst=new LinkedList<TKey>();
@@ -1438,12 +1521,15 @@ namespace TomB.Util.Collections
         		lst.AddLast(setEnum.Current.Key);
         	return lst;
         }
+        /// <summary>
+        /// Add all items of a collection
+        /// </summary>
+        /// <param name="src"></param>
         public void AddAll( ICollection<KeyValuePair<TKey,TValue>> src)
         {
         	foreach(var kv in src )
         		Add(kv);        	
-        }
-        
+        }        
         #endregion
     }
 }

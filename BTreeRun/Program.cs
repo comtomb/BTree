@@ -141,10 +141,10 @@ namespace BTreeRun
 	        		        	
 	        	var ttree1=DateTime.Now.Ticks;
 	        	Console.WriteLine("Add Tree with    d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree1-ttree0).TotalMilliseconds);
-	        	Console.WriteLine("After Add:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	Console.WriteLine("After Add:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth );
 	        	for(int i=0;i<k1;i++)
 	        		tree3.Remove(src[i]);
-	        	Console.WriteLine("After Pre-Remove:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	Console.WriteLine("After Pre-Remove:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth );
 	        	sum=0;
 	        	for(int i=k1;i<toAdd;i++)
 	        	{        		
@@ -156,7 +156,7 @@ namespace BTreeRun
 	        		tree3.Remove(src[i]);
 	        	var ttree3=DateTime.Now.Ticks;
 	        	Console.WriteLine("Remove Tree with d=" + String.Format("{0,4:D}",d) + ": "   +TimeSpan.FromTicks(ttree3-ttree2).TotalMilliseconds);
-	        	Console.WriteLine("End:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth() );
+	        	Console.WriteLine("End:  Nodes: " + tree3.CountNodes() + " Depth: " + tree3.Depth );
 	        	Console.WriteLine("Total Tree with  d=" + String.Format("{0,4:D}",d) + ":         "   +TimeSpan.FromTicks(ttree3-ttree0).TotalMilliseconds);
         	}
         	
@@ -269,6 +269,8 @@ namespace BTreeRun
                 Step(tree, master, 700000, rnd);
                 Compare<int, int>(tree, master);
                 Step(tree, master, 0, rnd);
+                if(tree.Depth!=1)
+                	throw new Exception();
                 Compare<int, int>(tree, master);
                 Step(tree, master, 350000, rnd);
                 Compare<int, int>(tree, master);
