@@ -22,8 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// TODO exception
-// TODO parameter check
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -48,7 +46,7 @@ namespace TomB.Util.Collections
 	/// 
 	/// </summary>
 	[DebuggerDisplay("Count={Count} Degree={Degree} Depth={Depth}")]
-	public class BTreeSortedDictionary<TKey, TValue> : IDictionary<TKey, TValue>
+	public class BTreeSortedDictionary<TKey, TValue> : IDictionary<TKey, TValue>,IReadOnlyDictionary<TKey,TValue>
     {
         #region Nodes
         /// <summary>
@@ -424,6 +422,12 @@ namespace TomB.Util.Collections
 
             public void CopyTo(TValue[] array, int arrayIndex)
             { 
+            	if( array==null)
+            		throw new ArgumentNullException();
+            	if(arrayIndex<0 || arrayIndex>array.Length)
+            		throw new ArgumentException();
+            	if( array.Length-arrayIndex<Count)
+            		throw new ArgumentException();
                 foreach (var kv in tree)
                     array[arrayIndex++] = kv.Value;
             }
@@ -487,6 +491,13 @@ namespace TomB.Util.Collections
 
             public void CopyTo(TKey[] array, int arrayIndex)
             {
+            	if( array==null)
+            		throw new ArgumentNullException();
+            	if(arrayIndex<0 || arrayIndex>array.Length)
+            		throw new ArgumentException();
+            	if( array.Length-arrayIndex<Count)
+            		throw new ArgumentException();
+            	
                 foreach (var kv in tree)
                     array[arrayIndex++] = kv.Key;
             }
@@ -516,7 +527,7 @@ namespace TomB.Util.Collections
         	/// <summary>
         	/// stack entry
         	/// </summary>
-            class NodeInfo
+            private class NodeInfo
             {
                 public readonly BTreeNode node;
                 public readonly int index;
@@ -553,7 +564,7 @@ namespace TomB.Util.Collections
                 }
             }
             /// <summary>
-            /// the tree we walk through
+            /// the tree we walk through...
             /// </summary>
             private readonly BTreeSortedDictionary<TKey, TValue> tree;
             /// <summary>
@@ -577,10 +588,19 @@ namespace TomB.Util.Collections
             /// </summary>
             private readonly TKey maxKey;
             /// <summary>
-            /// constructor
+            /// simple constructor
             /// </summary>
             /// <param name="tree"></param>
-            /// <param name="minKey">starting key, or default(TKey) for smallest tree entry</param></param>
+            public KeyValueEnumerator(BTreeSortedDictionary<TKey,TValue> tree)
+            	: this(tree,default(TKey),default(TKey))
+            {
+            	
+            }
+            /// <summary>
+            /// constructor with range
+            /// </summary>
+            /// <param name="tree"></param>
+            /// <param name="minKey">starting key, or default(TKey) for smallest tree entry</param>
             /// <param name="maxKey">end key or defaulr(TKey) for greatest key entry</param>
             public KeyValueEnumerator(BTreeSortedDictionary<TKey, TValue> tree, TKey minKey, TKey maxKey)
             {
@@ -737,7 +757,7 @@ namespace TomB.Util.Collections
             private readonly KeyValueEnumerator kvEnum;
             public ValueEnumerator(BTreeSortedDictionary<TKey, TValue> tree)
             {
-                kvEnum = new KeyValueEnumerator(tree,default(TKey),default(TKey));
+                kvEnum = new KeyValueEnumerator(tree);
             }
 
             public void Dispose()
@@ -778,7 +798,7 @@ namespace TomB.Util.Collections
             private readonly KeyValueEnumerator kvEnum;
             public KeyEnumerator( BTreeSortedDictionary<TKey,TValue> tree )
             {
-                kvEnum = new KeyValueEnumerator(tree,default(TKey),default(TKey));
+                kvEnum = new KeyValueEnumerator(tree);
             }
             public void Dispose()
             {
@@ -942,6 +962,26 @@ namespace TomB.Util.Collections
             }
         }
         /// <summary>
+        /// <see cref="IReadOnlyDictionary"/
+        /// </summary>
+        IEnumerable<TKey> IReadOnlyDictionary<TKey,TValue>.Keys
+        {
+        	get
+        	{
+        		return new KeyCollection(this);
+        	}
+        }
+        /// <summary>
+        /// <see cref="IReadOnlyDictionary"/
+        /// </summary>
+        IEnumerable<TValue> IReadOnlyDictionary<TKey,TValue>.Values
+        {
+        	get
+        	{
+        		return new ValueCollection(this);
+        	}
+        }
+        /// <summary>
         /// <see cref="ICollection{TKey, TValue}.Count"/>
         /// </summary>
         public int Count
@@ -950,7 +990,6 @@ namespace TomB.Util.Collections
             {
                 return count;
             }
-
         }
         /// <summary>
         /// <see cref="IDictionary{TKey, TValue}.IsReadOnly"/>
@@ -999,8 +1038,9 @@ namespace TomB.Util.Collections
         public bool Contains(KeyValuePair<TKey, TValue> item)
         {
             TValue v;
+                        
             if (!TryGetValue(item.Key, out v))
-                return true;
+                return false;
             return v.Equals(item.Value);
         }
         /// <summary>
@@ -1020,6 +1060,12 @@ namespace TomB.Util.Collections
         /// <param name="arrayIndex"></param>
         public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
         {
+        	if( array==null)
+        		throw new ArgumentNullException();
+        	if(arrayIndex<0 || arrayIndex>array.Length)
+        		throw new ArgumentException();
+        	if( array.Length-arrayIndex<Count)
+        		throw new ArgumentException();
             foreach (var kv in this)
                 array[arrayIndex++] = kv;
         }
@@ -1029,7 +1075,7 @@ namespace TomB.Util.Collections
         /// <returns></returns>
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
-        	return new KeyValueEnumerator(this,default(TKey),default(TKey));
+        	return new KeyValueEnumerator(this);
         }
         /// <summary>
         /// <see cref="IDictionary{TKey, TValue}.Remove(TKey)"/>
@@ -1070,7 +1116,7 @@ namespace TomB.Util.Collections
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return new KeyValueEnumerator(this,default(TKey),default(TKey));
+            return new KeyValueEnumerator(this);
         }
         #endregion
         #region Core
