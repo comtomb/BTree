@@ -12,3 +12,7 @@ BTree Implementation:
 - Add/Remove are done in "single pass down", without recursion and without "up-steps"
 - Implementation of IDictionary<TKey,TValue>
 
+SubProjects:
+- BTreeRun: For testing&development only
+- BTreeSortedDictionaryLib: The BTree Implementation
+- BTreeTest: Unit Tests
